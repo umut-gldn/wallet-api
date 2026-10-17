@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -40,6 +41,9 @@ public class Account {
     @Column(name = "created_at",nullable = false,updatable = false)
     private Instant createdAt;
 
+    @Column(nullable = false,precision = 19,scale = 2)
+    private BigDecimal balance;
+
     public static Account open(String accountNumber,UUID ownerId,CurrencyCode currency){
         Account account = new Account();
         account.accountNumber = accountNumber;
@@ -47,6 +51,26 @@ public class Account {
         account.currency = currency;
         account.status = AccountStatus.ACTIVE;
         account.createdAt = Instant.now();
+        account.balance = BigDecimal.ZERO;
         return account;
+    }
+
+    void deposit(BigDecimal amount) {
+        requireActive();
+        balance = balance.add(amount);
+    }
+
+    void withdraw(BigDecimal amount) {
+        requireActive();
+        if (balance.compareTo(amount) < 0) {
+            throw new InsufficientFundsException(id);
+        }
+        balance = balance.subtract(amount);
+    }
+
+    private void requireActive(){
+        if(status != AccountStatus.ACTIVE){
+            throw new AccountNotActiveException(id,status);
+        }
     }
 }
