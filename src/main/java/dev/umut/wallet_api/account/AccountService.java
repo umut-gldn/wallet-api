@@ -53,26 +53,41 @@ public class AccountService {
 
     @Transactional
     public AccountEntryResponse deposit(UUID accountId, BigDecimal amount){
-        return apply(accountId,EntryType.DEPOSIT,amount);
+        return apply(accountId,EntryType.DEPOSIT,amount,null);
     }
 
     @Transactional
     public AccountEntryResponse withdraw(UUID accountId, BigDecimal amount){
-        return  apply(accountId,EntryType.WITHDRAWAL,amount);
+        return  apply(accountId,EntryType.WITHDRAWAL,amount,null);
     }
 
-    private AccountEntryResponse apply(UUID accountId, EntryType type,BigDecimal amount){
+    @Transactional
+    public AccountEntryResponse transferOut(UUID accountId, BigDecimal amount, UUID transferId) {
+        return apply(accountId, EntryType.TRANSFER_OUT, amount, transferId);
+    }
+
+    @Transactional
+    public AccountEntryResponse transferIn(UUID accountId, BigDecimal amount, UUID transferId) {
+        return apply(accountId, EntryType.TRANSFER_IN, amount, transferId);
+    }
+
+    public CurrencyCode getCurrency(UUID accountId){
+        return accountRepository.findCurrencyById(accountId)
+                .orElseThrow(()->new AccountNotFoundException(accountId));
+    }
+
+    private AccountEntryResponse apply(UUID accountId, EntryType type,BigDecimal amount,UUID transferId){
         Account account=accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(()->new AccountNotFoundException(accountId));
 
-        if(type==EntryType.DEPOSIT){
+        if(type.increasesBalance()){
             account.deposit(amount);
         }
         else {
             account.withdraw(amount);
         }
         AccountEntry entry = accountEntryRepository.save(
-                AccountEntry.of(account.getId(), type, amount, account.getBalance()));
+                AccountEntry.of(account.getId(), type, amount, account.getBalance(), transferId));
 
         log.info("Entry applied: accountId={}, type={}, amount={}", accountId, type, amount);
         return AccountEntryResponse.from(entry);

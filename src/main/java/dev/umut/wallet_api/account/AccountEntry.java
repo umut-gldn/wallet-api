@@ -36,13 +36,17 @@ public class AccountEntry {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    static AccountEntry of(UUID accountId, EntryType type, BigDecimal amount, BigDecimal balanceAfter) {
+    @Column(name = "transfer_id",updatable = false)
+    private UUID transferId;
+
+    static AccountEntry of(UUID accountId, EntryType type, BigDecimal amount, BigDecimal balanceAfter,UUID transferId) {
         AccountEntry entry = new AccountEntry();
         entry.accountId = accountId;
         entry.type = type;
         entry.amount = amount;
         entry.balanceAfter = balanceAfter;
         entry.createdAt = Instant.now();
+        entry.transferId = transferId;
         return entry;
     }
 }
