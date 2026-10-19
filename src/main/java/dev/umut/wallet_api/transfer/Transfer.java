@@ -11,7 +11,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "transfer")
+@Table(name = "transfer",
+        uniqueConstraints = @UniqueConstraint(name = "uk_transfer_idempotency_key",columnNames = "idempotency_key"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Transfer {
@@ -36,13 +37,17 @@ public class Transfer {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    static Transfer of(UUID fromAccountId, UUID toAccountId, BigDecimal amount, CurrencyCode currency) {
+    @Column(name = "idempotency_key",nullable = false, updatable = false,length = 64)
+    private String idempotencyKey;
+
+    static Transfer of(UUID fromAccountId, UUID toAccountId, BigDecimal amount, CurrencyCode currency,String idempotencyKey) {
         Transfer transfer = new Transfer();
         transfer.fromAccountId = fromAccountId;
         transfer.toAccountId = toAccountId;
         transfer.amount = amount;
         transfer.currency = currency;
         transfer.createdAt = Instant.now();
+        transfer.idempotencyKey = idempotencyKey;
         return transfer;
     }
 

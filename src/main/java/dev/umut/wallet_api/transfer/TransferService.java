@@ -5,9 +5,12 @@ import dev.umut.wallet_api.account.AccountService;
 import dev.umut.wallet_api.account.CurrencyCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -19,8 +22,18 @@ public class TransferService {
     private final AccountService accountService;
     private final TransferRepository transferRepository;
 
+    private static final String IDEMPOTENCY_CONSTRAINT= "uk_transfer_idempotency_key";
+
     @Transactional
-    public TransferResponse transfer(TransferRequest request) {
+    public TransferResponse transfer(String idempotencyKey,TransferRequest request) {
+        if(idempotencyKey.isBlank() || idempotencyKey.length()>64){
+            throw new InvalidIdempotencyKeyException();
+        }
+
+        Optional<Transfer> existing= transferRepository.findByIdempotencyKey(idempotencyKey);
+        if(existing.isPresent()){
+            return replay(existing.get(),idempotencyKey,request);
+        }
         UUID fromId=request.fromAccountId();
         UUID toId=request.toAccountId();
 
@@ -34,8 +47,17 @@ public class TransferService {
             throw new CurrencyMismatchException(fromCurrency,toCurrency);
         }
 
-        Transfer transfer=transferRepository.save(
-                Transfer.of(fromId,toId,request.amount(),fromCurrency));
+        Transfer transfer;
+        try {
+            transfer=transferRepository.saveAndFlush(
+                    Transfer.of(fromId,toId,request.amount(),fromCurrency,idempotencyKey));
+
+        }catch (DataIntegrityViolationException ex) {
+            if(violates(ex,IDEMPOTENCY_CONSTRAINT)){
+                throw new IdempotentRequestInProgressException(idempotencyKey);
+            }
+            throw ex;
+        }
 
         if(fromId.compareTo(toId)<0){
             accountService.transferOut(fromId,request.amount(),transfer.getId());
@@ -48,5 +70,20 @@ public class TransferService {
         log.info("Transfer completed: transferId={}, from={}, to={}, amount={}",
                 transfer.getId(), fromId, toId, request.amount());
         return TransferResponse.from(transfer);
+    }
+
+    private TransferResponse replay(Transfer existing, String idempotencyKey, TransferRequest request){
+        boolean sameRequest= existing.getFromAccountId().equals(request.fromAccountId())
+                && existing.getToAccountId().equals(request.toAccountId())
+                && existing.getAmount().compareTo(request.amount())==0;
+        if(!sameRequest){
+            throw new IdempotencyKeyReusedException(idempotencyKey);
+        }
+        return TransferResponse.from(existing);
+    }
+
+    private static boolean violates(DataIntegrityViolationException ex, String constraintName) {
+        return ex.getCause() instanceof ConstraintViolationException cve
+                && constraintName.equalsIgnoreCase(cve.getConstraintName());
     }
 }
