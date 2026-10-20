@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,6 +78,13 @@ public class AccountService {
                 .orElseThrow(()->new AccountNotFoundException(accountId));
     }
 
+    public Page<AccountEntryResponse> getEntries(UUID accountId, Pageable pageable){
+        if(!accountRepository.existsById(accountId)){
+            throw new AccountNotFoundException(accountId);
+        }
+        return accountEntryRepository.findByAccountIdOrderByCreatedAtDescIdDesc(accountId,pageable)
+                .map(AccountEntryResponse::from);
+    }
     private AccountEntryResponse apply(UUID accountId, EntryType type,BigDecimal amount,UUID transferId){
         Account account=accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(()->new AccountNotFoundException(accountId));

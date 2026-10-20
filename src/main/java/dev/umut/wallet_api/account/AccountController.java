@@ -2,6 +2,9 @@ package dev.umut.wallet_api.account;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -44,5 +47,11 @@ class AccountController {
                                                   @Valid @RequestBody MoneyRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(accountService.withdraw(accountId, request.amount()));
+    }
+
+    @GetMapping("/{accountId}/entries")
+    PagedModel<AccountEntryResponse> getEntries(@PathVariable UUID accountId,
+                                                @PageableDefault(size = 20) Pageable pageable) {
+        return new PagedModel<>(accountService.getEntries(accountId, pageable));
     }
 }
