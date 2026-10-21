@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -108,8 +109,16 @@ public class AccountService {
          return new CursorPage<>(page.stream().map(AccountEntryResponse::from).toList(),nextCursor);
     }
     private List<AccountEntry> findAfter(UUID accountId, String cursor, int limit){
-        String[] parts=new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8).split("\\|");
-        return accountEntryRepository.findNextPage(accountId, Instant.parse(parts[0]),UUID.fromString(parts[1]), Limit.of(limit));
+        Instant createdAt;
+        UUID id;
+        try {
+            String[] parts=new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8).split("\\|");
+            createdAt=Instant.parse(parts[0]);
+            id=UUID.fromString(parts[1]);
+        }catch (IllegalArgumentException | DateTimeParseException |ArrayIndexOutOfBoundsException e){
+            throw new InvalidCursorException();
+        }
+        return accountEntryRepository.findNextPage(accountId, createdAt,id, Limit.of(limit));
     }
     private String encode(AccountEntry last){
         String raw=last.getCreatedAt()+"|"+last.getId();
