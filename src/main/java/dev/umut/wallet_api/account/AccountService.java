@@ -5,12 +5,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -85,6 +90,32 @@ public class AccountService {
         return accountEntryRepository.findByAccountIdOrderByCreatedAtDescIdDesc(accountId,pageable)
                 .map(AccountEntryResponse::from);
     }
+
+    public CursorPage<AccountEntryResponse> getEntriesByCursor(UUID accountId, String cursor, int size){
+
+         if(!accountRepository.existsById(accountId)){
+            throw new AccountNotFoundException(accountId);
+         }
+        int limit=Math.min(Math.max(size,1),100);
+
+         List<AccountEntry> rows= cursor ==null ? accountEntryRepository.findByAccountIdOrderByCreatedAtDescIdDesc(accountId,Limit.of(limit+1))
+                 : findAfter(accountId,cursor,limit+1);
+
+         boolean hasNext =rows.size() > limit;
+         List<AccountEntry> page= hasNext ? rows.subList(0,limit) : rows;
+         String nextCursor= hasNext ? encode(page.get(page.size()-1)) : null;
+
+         return new CursorPage<>(page.stream().map(AccountEntryResponse::from).toList(),nextCursor);
+    }
+    private List<AccountEntry> findAfter(UUID accountId, String cursor, int limit){
+        String[] parts=new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8).split("\\|");
+        return accountEntryRepository.findNextPage(accountId, Instant.parse(parts[0]),UUID.fromString(parts[1]), Limit.of(limit));
+    }
+    private String encode(AccountEntry last){
+        String raw=last.getCreatedAt()+"|"+last.getId();
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+    }
+
     private AccountEntryResponse apply(UUID accountId, EntryType type,BigDecimal amount,UUID transferId){
         Account account=accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(()->new AccountNotFoundException(accountId));

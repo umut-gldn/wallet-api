@@ -54,4 +54,11 @@ class AccountController {
                                                 @PageableDefault(size = 20) Pageable pageable) {
         return new PagedModel<>(accountService.getEntries(accountId, pageable));
     }
+
+    @GetMapping("/{accountId}/entries/cursor")
+    CursorPage<AccountEntryResponse> getEntriesByCursor(@PathVariable UUID accountId,
+                                                        @RequestParam(required = false) String cursor,
+                                                        @RequestParam(defaultValue = "20") int size){
+        return accountService.getEntriesByCursor(accountId, cursor, size);
+    }
 }
