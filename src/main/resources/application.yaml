@@ -14,3 +14,12 @@ spring:
   sql:
     init:
       mode: always
+
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-change-me-at-least-32-bytes!!}
