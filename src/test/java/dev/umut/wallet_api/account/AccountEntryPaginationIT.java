@@ -28,10 +28,11 @@ class AccountEntryPaginationIT {
     private AccountService accountService;
 
     // 10, 20, 30, 40, 50 yatırılmış bir hesap açar (en yeni hareket 50)
-    private UUID accountWithFiveDeposits() {
-        UUID id = accountService.open(new OpenAccountRequest(UUID.randomUUID(), CurrencyCode.TRY)).id();
+    // 10, 20, 30, 40, 50 yatırılmış bir hesap açar (en yeni hareket 50)
+    private UUID accountWithFiveDeposits(UUID owner) {
+        UUID id = accountService.open(owner, new OpenAccountRequest(CurrencyCode.TRY)).id();
         for (int amount = 10; amount <= 50; amount += 10) {
-            accountService.deposit(id, new BigDecimal(amount));
+            accountService.deposit(owner, id, new BigDecimal(amount));
         }
         return id;
     }
@@ -42,11 +43,12 @@ class AccountEntryPaginationIT {
 
     @Test
     void offsetPaginationRepeatsAnEntryWhenNewEntryArrivesBetweenPages() {
-        UUID id = accountWithFiveDeposits();
+        UUID owner = UUID.randomUUID();
+        UUID id = accountWithFiveDeposits(owner);
 
-        Page<AccountEntryResponse> first = accountService.getEntries(id, PageRequest.of(0, 2));
-        accountService.deposit(id, new BigDecimal("60"));
-        Page<AccountEntryResponse> second = accountService.getEntries(id, PageRequest.of(1, 2));
+        Page<AccountEntryResponse> first = accountService.getEntries(owner, id, PageRequest.of(0, 2));
+        accountService.deposit(owner, id, new BigDecimal("60"));
+        Page<AccountEntryResponse> second = accountService.getEntries(owner, id, PageRequest.of(1, 2));
 
         assertThat(amounts(first.getContent())).containsExactly(50, 40);
         // beklenen 30, 20 idi; yeni kayıt listeyi kaydırdığı için 40 tekrar geldi
@@ -55,11 +57,12 @@ class AccountEntryPaginationIT {
 
     @Test
     void cursorPaginationStaysStableWhenNewEntryArrivesBetweenPages() {
-        UUID id = accountWithFiveDeposits();
+        UUID owner = UUID.randomUUID();
+        UUID id = accountWithFiveDeposits(owner);
 
-        CursorPage<AccountEntryResponse> first = accountService.getEntriesByCursor(id, null, 2);
-        accountService.deposit(id,new BigDecimal("60"));
-        CursorPage<AccountEntryResponse> second = accountService.getEntriesByCursor(id, first.nextCursor(), 2);
+        CursorPage<AccountEntryResponse> first = accountService.getEntriesByCursor(owner, id, null, 2);
+        accountService.deposit(owner, id, new BigDecimal("60"));
+        CursorPage<AccountEntryResponse> second = accountService.getEntriesByCursor(owner, id, first.nextCursor(), 2);
 
         assertThat(amounts(first.content())).containsExactly(50, 40);
         assertThat(amounts(second.content())).containsExactly(30, 20);
@@ -67,13 +70,14 @@ class AccountEntryPaginationIT {
 
     @Test
     void cursorWalksAllEntriesExactlyOnceAndEndsWithNullCursor() {
-        UUID id = accountWithFiveDeposits();
+        UUID owner = UUID.randomUUID();
+        UUID id = accountWithFiveDeposits(owner);
 
         List<Integer> seen = new ArrayList<>();
         String cursor = null;
         int pages = 0;
         do {
-            CursorPage<AccountEntryResponse> page = accountService.getEntriesByCursor(id, cursor, 2);
+            CursorPage<AccountEntryResponse> page = accountService.getEntriesByCursor(owner, id, cursor, 2);
             seen.addAll(amounts(page.content()));
             cursor = page.nextCursor();
             pages++;
@@ -85,21 +89,23 @@ class AccountEntryPaginationIT {
 
     @Test
     void unknownAccountThrowsNotFound() {
+        UUID owner = UUID.randomUUID();
         UUID unknown = UUID.randomUUID();
 
-        assertThatThrownBy(() -> accountService.getEntries(unknown, PageRequest.of(0, 2)))
+        assertThatThrownBy(() -> accountService.getEntries(owner, unknown, PageRequest.of(0, 2)))
                 .isInstanceOf(AccountNotFoundException.class);
-        assertThatThrownBy(() -> accountService.getEntriesByCursor(unknown, null, 2))
+        assertThatThrownBy(() -> accountService.getEntriesByCursor(owner, unknown, null, 2))
                 .isInstanceOf(AccountNotFoundException.class);
     }
 
     @Test
     void malformedCursorThrowsInvalidCursor() {
-        UUID id = accountWithFiveDeposits();
+        UUID owner = UUID.randomUUID();
+        UUID id = accountWithFiveDeposits(owner);
 
-        assertThatThrownBy(() -> accountService.getEntriesByCursor(id, "abc", 2))
+        assertThatThrownBy(() -> accountService.getEntriesByCursor(owner, id, "abc", 2))
                 .isInstanceOf(InvalidCursorException.class);
-        assertThatThrownBy(() -> accountService.getEntriesByCursor(id, "aGVsbG8", 2))
+        assertThatThrownBy(() -> accountService.getEntriesByCursor(owner, id, "aGVsbG8", 2))
                 .isInstanceOf(InvalidCursorException.class);
     }
 }

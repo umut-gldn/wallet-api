@@ -25,10 +25,11 @@ public class TransferService {
     private static final String IDEMPOTENCY_CONSTRAINT= "uk_transfer_idempotency_key";
 
     @Transactional
-    public TransferResponse transfer(String idempotencyKey,TransferRequest request) {
+    public TransferResponse transfer(UUID ownerId,String idempotencyKey,TransferRequest request) {
         if(idempotencyKey.isBlank() || idempotencyKey.length()>64){
             throw new InvalidIdempotencyKeyException();
         }
+        accountService.requireOwner(ownerId,request.fromAccountId());
 
         Optional<Transfer> existing= transferRepository.findByIdempotencyKey(idempotencyKey);
         if(existing.isPresent()){

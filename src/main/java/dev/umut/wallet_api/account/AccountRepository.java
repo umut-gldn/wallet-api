@@ -22,4 +22,8 @@ interface AccountRepository extends JpaRepository<Account, UUID> {
 
     @Query("select a.currency from Account a where a.id= :id ")
     Optional<CurrencyCode> findCurrencyById(@Param("id")  UUID id);
+
+    boolean existsByIdAndOwnerId(UUID id, UUID ownerId);
+
+    Optional<Account> findByIdAndOwnerId(UUID id, UUID ownerId);
 }

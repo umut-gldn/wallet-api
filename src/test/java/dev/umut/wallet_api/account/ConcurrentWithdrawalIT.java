@@ -33,9 +33,10 @@ class ConcurrentWithdrawalIT {
 
     @Test
     void onlyOneOfTenParallelWithdrawalsSucceeds() throws Exception {
+        UUID owner = UUID.randomUUID();
         UUID accountId = accountService
-                .open(new OpenAccountRequest(UUID.randomUUID(), CurrencyCode.TRY)).id();
-        accountService.deposit(accountId, new BigDecimal("100.00"));
+                .open(owner, new OpenAccountRequest(CurrencyCode.TRY)).id();
+        accountService.deposit(owner, accountId, new BigDecimal("100.00"));
 
         int threads = 10;
         CountDownLatch startGate = new CountDownLatch(1);
@@ -46,7 +47,7 @@ class ConcurrentWithdrawalIT {
                 Callable<Boolean> task = () -> {
                     startGate.await();
                     try {
-                        accountService.withdraw(accountId, new BigDecimal("80.00"));
+                        accountService.withdraw(owner, accountId, new BigDecimal("80.00"));
                         return true;
                     } catch (InsufficientFundsException ex) {
                         return false;
@@ -66,7 +67,7 @@ class ConcurrentWithdrawalIT {
             assertThat(successes).isEqualTo(1);
         }
 
-        assertThat(accountService.getById(accountId).balance())
+        assertThat(accountService.getById(owner, accountId).balance())
                 .isEqualByComparingTo("20.00");
     }
 }

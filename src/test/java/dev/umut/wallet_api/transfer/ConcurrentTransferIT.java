@@ -33,10 +33,12 @@ class ConcurrentTransferIT {
 
     @Test
     void oppositeParallelTransfersDoNotDeadlockAndKeepTotalMoney() throws Exception {
-        UUID a = accountService.open(new OpenAccountRequest(UUID.randomUUID(), CurrencyCode.TRY)).id();
-        UUID b = accountService.open(new OpenAccountRequest(UUID.randomUUID(), CurrencyCode.TRY)).id();
-        accountService.deposit(a, new BigDecimal("1000.00"));
-        accountService.deposit(b, new BigDecimal("1000.00"));
+        UUID ownerA = UUID.randomUUID();
+        UUID ownerB = UUID.randomUUID();
+        UUID a = accountService.open(ownerA, new OpenAccountRequest(CurrencyCode.TRY)).id();
+        UUID b = accountService.open(ownerB, new OpenAccountRequest(CurrencyCode.TRY)).id();
+        accountService.deposit(ownerA, a, new BigDecimal("1000.00"));
+        accountService.deposit(ownerB, b, new BigDecimal("1000.00"));
 
         int tasks = 100;
         CountDownLatch startGate = new CountDownLatch(1);
@@ -47,9 +49,10 @@ class ConcurrentTransferIT {
                 boolean aToB = i % 2 == 0;
                 Callable<Void> task = () -> {
                     startGate.await();
+                    UUID owner = aToB ? ownerA : ownerB;
                     UUID from = aToB ? a : b;
                     UUID to = aToB ? b : a;
-                    transferService.transfer(UUID.randomUUID().toString(),new TransferRequest(from, to, new BigDecimal("10.00")));
+                    transferService.transfer(owner, UUID.randomUUID().toString(),new TransferRequest(from, to, new BigDecimal("10.00")));
                     return null;
                 };
                 results.add(executor.submit(task));
@@ -62,14 +65,16 @@ class ConcurrentTransferIT {
             }
         }
 
-        assertThat(accountService.getById(a).balance()).isEqualByComparingTo("1000.00");
-        assertThat(accountService.getById(b).balance()).isEqualByComparingTo("1000.00");
+        assertThat(accountService.getById(ownerA, a).balance()).isEqualByComparingTo("1000.00");
+        assertThat(accountService.getById(ownerB, b).balance()).isEqualByComparingTo("1000.00");
     }
     @Test
     void sameKeyParallelRequestsMoveMoneyOnlyOnce() throws Exception {
-        UUID a = accountService.open(new OpenAccountRequest(UUID.randomUUID(), CurrencyCode.TRY)).id();
-        UUID b = accountService.open(new OpenAccountRequest(UUID.randomUUID(), CurrencyCode.TRY)).id();
-        accountService.deposit(a, new BigDecimal("1000.00"));
+        UUID ownerA = UUID.randomUUID();
+        UUID ownerB = UUID.randomUUID();
+        UUID a = accountService.open(ownerA, new OpenAccountRequest(CurrencyCode.TRY)).id();
+        UUID b = accountService.open(ownerB, new OpenAccountRequest(CurrencyCode.TRY)).id();
+        accountService.deposit(ownerA, a, new BigDecimal("1000.00"));
 
         String key = UUID.randomUUID().toString();
         int threads = 10;
@@ -81,7 +86,7 @@ class ConcurrentTransferIT {
                 Callable<UUID> task = () -> {
                     startGate.await();
                     try {
-                        return transferService.transfer(key,
+                        return transferService.transfer(ownerA, key,
                                 new TransferRequest(a, b, new BigDecimal("100.00"))).id();
                     } catch (IdempotentRequestInProgressException ex) {
                         return null;
@@ -102,7 +107,7 @@ class ConcurrentTransferIT {
             assertThat(transferIds).hasSize(1);
         }
 
-        assertThat(accountService.getById(a).balance()).isEqualByComparingTo("900.00");
-        assertThat(accountService.getById(b).balance()).isEqualByComparingTo("100.00");
+        assertThat(accountService.getById(ownerA, a).balance()).isEqualByComparingTo("900.00");
+        assertThat(accountService.getById(ownerB, b).balance()).isEqualByComparingTo("100.00");
     }
 }

@@ -31,20 +31,20 @@ public class AccountService {
     private final AccountEntryRepository accountEntryRepository;
 
     @Transactional
-    public AccountResponse open(OpenAccountRequest request){
+    public AccountResponse open(UUID ownerId,OpenAccountRequest request){
         // Yarış durumunu DB constraint'i yakalar; bu kontrol sadece hızlı/okunaklı hata için.
-        if(accountRepository.existsByOwnerIdAndCurrency(request.ownerId(),request.currency())){
-            throw new AccountAlreadyExistsException(request.ownerId(), request.currency());
+        if(accountRepository.existsByOwnerIdAndCurrency(ownerId,request.currency())){
+            throw new AccountAlreadyExistsException(ownerId, request.currency());
         }
 
-        Account account= Account.open(accountNumberGenerator.generate(),request.ownerId(),request.currency());
+        Account account= Account.open(accountNumberGenerator.generate(),ownerId,request.currency());
 
         try {
             // flush: INSERT'ü commit'te değil şimdi çalıştır, ihlal burada yakalansın.
             accountRepository.saveAndFlush(account);
         }catch (DataIntegrityViolationException ex){
             if (violates(ex,OWNER_CURRENCY_CONSTRAINT)){
-                throw new AccountAlreadyExistsException(request.ownerId(), request.currency());
+                throw new AccountAlreadyExistsException(ownerId, request.currency());
             }
             throw ex;
         }
@@ -53,19 +53,21 @@ public class AccountService {
         return AccountResponse.from(account);
     }
 
-    public AccountResponse getById(UUID accountId){
-        return accountRepository.findById(accountId)
+    public AccountResponse getById(UUID ownerId,UUID accountId){
+        return accountRepository.findByIdAndOwnerId(accountId,ownerId)
                 .map(AccountResponse::from)
                 .orElseThrow(()->new AccountNotFoundException(accountId));
     }
 
     @Transactional
-    public AccountEntryResponse deposit(UUID accountId, BigDecimal amount){
+    public AccountEntryResponse deposit(UUID ownerId,UUID accountId, BigDecimal amount){
+        requireOwner(ownerId, accountId);
         return apply(accountId,EntryType.DEPOSIT,amount,null);
     }
 
     @Transactional
-    public AccountEntryResponse withdraw(UUID accountId, BigDecimal amount){
+    public AccountEntryResponse withdraw(UUID ownerId,UUID accountId, BigDecimal amount){
+        requireOwner(ownerId, accountId);
         return  apply(accountId,EntryType.WITHDRAWAL,amount,null);
     }
 
@@ -84,19 +86,14 @@ public class AccountService {
                 .orElseThrow(()->new AccountNotFoundException(accountId));
     }
 
-    public Page<AccountEntryResponse> getEntries(UUID accountId, Pageable pageable){
-        if(!accountRepository.existsById(accountId)){
-            throw new AccountNotFoundException(accountId);
-        }
+    public Page<AccountEntryResponse> getEntries(UUID ownerId,UUID accountId, Pageable pageable){
+        requireOwner(ownerId, accountId);
         return accountEntryRepository.findByAccountIdOrderByCreatedAtDescIdDesc(accountId,pageable)
                 .map(AccountEntryResponse::from);
     }
 
-    public CursorPage<AccountEntryResponse> getEntriesByCursor(UUID accountId, String cursor, int size){
-
-         if(!accountRepository.existsById(accountId)){
-            throw new AccountNotFoundException(accountId);
-         }
+    public CursorPage<AccountEntryResponse> getEntriesByCursor(UUID ownerId,UUID accountId, String cursor, int size){
+        requireOwner(ownerId, accountId);
         int limit=Math.min(Math.max(size,1),100);
 
          List<AccountEntry> rows= cursor ==null ? accountEntryRepository.findByAccountIdOrderByCreatedAtDescIdDesc(accountId,Limit.of(limit+1))
@@ -108,6 +105,13 @@ public class AccountService {
 
          return new CursorPage<>(page.stream().map(AccountEntryResponse::from).toList(),nextCursor);
     }
+
+    public void requireOwner(UUID ownerId, UUID accountId){
+        if(!accountRepository.existsByIdAndOwnerId(accountId,ownerId)){
+            throw new AccountNotFoundException(accountId);
+        }
+    }
+
     private List<AccountEntry> findAfter(UUID accountId, String cursor, int limit){
         Instant createdAt;
         UUID id;
