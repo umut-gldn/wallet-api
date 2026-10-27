@@ -1,0 +1,18 @@
+{
+  "0": "org.junit.jupiter.api.Test",
+  "1": "AccountService",
+  "2": "BusinessException",
+  "3": "SecurityConfig.java",
+  "4": "CurrencyCode",
+  "5": "AuthService",
+  "6": "AccountEntryRepository.java",
+  "7": "spring",
+  "8": "uuid",
+  "9": "AccountController.java",
+  "10": "postgres",
+  "11": ".isValid",
+  "12": "mvnw",
+  "13": "GlobalExceptionHandler.java",
+  "14": "WalletApiApplication.java",
+  "15": "dev.umut:wallet-api"
+}
