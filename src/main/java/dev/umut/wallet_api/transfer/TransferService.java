@@ -22,7 +22,7 @@ public class TransferService {
     private final AccountService accountService;
     private final TransferRepository transferRepository;
 
-    private static final String IDEMPOTENCY_CONSTRAINT= "uk_transfer_idempotency_key";
+    private static final String IDEMPOTENCY_CONSTRAINT= "uk_transfer_owner_idempotency_key";
 
     @Transactional
     public TransferResponse transfer(UUID ownerId,String idempotencyKey,TransferRequest request) {
@@ -31,7 +31,7 @@ public class TransferService {
         }
         accountService.requireOwner(ownerId,request.fromAccountId());
 
-        Optional<Transfer> existing= transferRepository.findByIdempotencyKey(idempotencyKey);
+        Optional<Transfer> existing= transferRepository.findByOwnerIdAndIdempotencyKey(ownerId,idempotencyKey);
         if(existing.isPresent()){
             return replay(existing.get(),idempotencyKey,request);
         }
@@ -51,7 +51,7 @@ public class TransferService {
         Transfer transfer;
         try {
             transfer=transferRepository.saveAndFlush(
-                    Transfer.of(fromId,toId,request.amount(),fromCurrency,idempotencyKey));
+                    Transfer.of(ownerId,fromId,toId,request.amount(),fromCurrency,idempotencyKey));
 
         }catch (DataIntegrityViolationException ex) {
             if(violates(ex,IDEMPOTENCY_CONSTRAINT)){
