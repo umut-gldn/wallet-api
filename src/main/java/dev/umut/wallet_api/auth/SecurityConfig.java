@@ -28,13 +28,16 @@ import java.nio.charset.StandardCharsets;
 class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, RestAuthenticationEntryPoint entryPoint) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a->a
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(o->o.jwt(Customizer.withDefaults()));
+                .exceptionHandling(e->e.authenticationEntryPoint(entryPoint))
+                .oauth2ResourceServer(o->o
+                        .jwt(Customizer.withDefaults())
+                        .authenticationEntryPoint(entryPoint));
         return http.build();
     }
 
