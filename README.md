@@ -1,5 +1,5 @@
 # wallet-api
-
+[![CI](https://github.com/umut-gldn/wallet-api/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-gldn/wallet-api/actions/workflows/ci.yml)
 Dijital cüzdan / para transferi backend'i. Kullanıcılar kayıt olur, hesap açar, para yatırır-çeker ve hesaplar arası transfer yapar.
 
 Amaç bir CRUD örneği değil: **para taşıyan bir sistemde ortaya çıkan gerçek sorunları (yarış koşulları, çift işlem, yetkisiz erişim, şema evrimi) kendim yaşayıp testle kanıtlayarak çözmek.**
