@@ -1,7 +1,6 @@
 package dev.umut.wallet_api.auth;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -13,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +26,7 @@ class AuthService {
 
     @Transactional
     UserResponse register(RegisterRequest request) {
-        String email=normalize(request.email());
+        String email=request.email();
         if(userRepository.existsByEmail(email)){
             throw new EmailAlreadyRegisteredException(email);
         }
@@ -37,7 +35,7 @@ class AuthService {
     }
 
     TokenResponse login(LoginRequest request) {
-        User user=userRepository.findByEmail(normalize(request.email()))
+        User user=userRepository.findByEmail(request.email())
                 .filter(u->passwordEncoder.matches(request.password(),u.getPasswordHash()))
                 .orElseThrow(InvalidCredentialsException::new);
         return issueToken(user);
@@ -54,7 +52,4 @@ class AuthService {
         return new TokenResponse(token,"Bearer",TOKEN_TTL.toSeconds());
     }
 
-    private static String normalize(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
-    }
 }
