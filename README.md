@@ -95,7 +95,7 @@ Her karar bir sorundan doğdu; sorun önce testle yeniden üretildi, sonra çöz
 
 ## Postman koleksiyonu
 
-[`docs/postman/wallet-api.postman_collection.json`](docs/postman/wallet-api.postman_collection.json) dosyasını Postman'e aktar (Import), uygulama çalışırken **Run** ile sırayla çalıştır. 40 isteğin her birinde otomatik test var: kayıt/giriş, hesap işlemleri, idempotency, sayfalama, başkasının hesabına erişim denemeleri. Her çalıştırmada e-postalar yeniden üretilir, istediğin kadar tekrar çalıştırabilirsin.
+[`postman/wallet-api.postman_collection.json`](postman/wallet-api.postman_collection.json) dosyasını Postman'e aktar (Import), uygulama çalışırken **Run** ile sırayla çalıştır. 40 isteğin her birinde otomatik test var: kayıt/giriş, hesap işlemleri, idempotency, sayfalama, başkasının hesabına erişim denemeleri. Her çalıştırmada e-postalar yeniden üretilir, istediğin kadar tekrar çalıştırabilirsin.
 
 ## Testler
 
