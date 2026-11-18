@@ -112,14 +112,3 @@ Testler gerçek PostgreSQL üzerinde (Testcontainers) çalışır; H2 gibi bir t
 | `LuhnTest` | Hesap numarası kontrol hanesi (Luhn) |
 | `WalletApiApplicationTests` | Uygulama, Flyway + `validate` ile boş bir veritabanında ayağa kalkar |
 
-## Bilinen sınırlar
-
-Bilinçli olarak kapsam dışı bırakılanlar ve gerçek bir ortamda yapılacaklar:
-
-- **Token iptal edilemez.** JWT stateless olduğu için çıkış yapılsa veya kullanıcı kapatılsa bile süresi bitene kadar (1 saat) geçerlidir. Çözüm: ömrü ~15 dakikaya indirip refresh token eklemek ve/veya kritik uçlarda kullanıcının aktifliğini veritabanından doğrulamak.
-- **Login için rate limit yok.** Kaba kuvvet denemelerine açık.
-- **Kayıt uç noktası e-postanın kayıtlı olduğunu ele verir** (409 yanıtı ve zamanlama farkı).
-- **Docker compose'daki `JWT_SECRET` ve veritabanı şifresi örnek değerlerdir;** gerçek ortamda secret yönetimi kullanılmalı.
-- **`JWT_SECRET` gerçek ortamda ortam değişkeni / secret manager ile verilmeli;** koddaki varsayılan yalnızca geliştirme içindir. Geliştirme veritabanı kimlik bilgileri (`wallet/wallet`) de öyle.
-- **Rol yok.** Tüm kullanıcılar eşit; admin/yetki katmanı yok.
-- **Para birimi dönüşümü yok.** Transfer yalnızca aynı para birimindeki hesaplar arasında yapılır.
