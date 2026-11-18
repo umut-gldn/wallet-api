@@ -14,9 +14,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.*;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -120,6 +124,38 @@ class AuthSecurityIT {
                                 {"email":"case-%s@test.com","password":"12345678"}""".formatted(suffix)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_REGISTERED"));
+    }
+
+    @Test
+    void concurrentRegistrationsOfSameEmailCreateOneUserAndRestGet409() throws Exception {
+        String email = randomEmail();
+        int threads = 10;
+        CountDownLatch startGate = new CountDownLatch(1);
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
+            List<Future<Integer>> results = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                Callable<Integer> task = () -> {
+                    startGate.await();
+                    return mockMvc.perform(post("/api/v1/auth/register")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("""
+                                        {"email":"%s","password":"12345678"}""".formatted(email)))
+                            .andReturn().getResponse().getStatus();
+                };
+                results.add(executor.submit(task));
+            }
+
+            startGate.countDown();
+
+            List<Integer> statuses = new ArrayList<>();
+            for (Future<Integer> result : results) {
+                statuses.add(result.get());
+            }
+
+            assertThat(statuses).containsOnly(201, 409);
+            assertThat(statuses.stream().filter(s -> s == 201).count()).isEqualTo(1);
+        }
     }
 
     private static String randomEmail() {
