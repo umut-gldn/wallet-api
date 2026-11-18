@@ -9,5 +9,21 @@ services:
       - "5432:5432"
     volumes:
       - wallet-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U wallet -d wallet"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/wallet
+      JWT_SECRET: local-docker-secret-change-me-at-least-32-bytes!!
+    depends_on:
+      postgres:
+        condition: service_healthy
 volumes:
   wallet-data:
